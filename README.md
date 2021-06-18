@@ -1,2 +1,3 @@
 # Velocity Trading
- Trading Signals software
+
+Trading Signals software with 5 indicators to start
