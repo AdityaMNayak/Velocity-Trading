@@ -332,13 +332,13 @@ timePeriod = st.sidebar.selectbox('Select Time Period:', ( "1m","3m","5m","15m",
 
 
 
-#hide_streamlit_style = """
-#            <style>
-#            #MainMenu {visibility: hidden;}
-#            footer {visibility: hidden;}
-#            </style>
-#            """
-#st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
 
 
