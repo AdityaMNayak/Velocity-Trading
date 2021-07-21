@@ -10,12 +10,16 @@ from pynse import *
 from IPython.display import clear_output
 import math
 import altair as alt
+import base64
+from io import BytesIO
 
 username = 'omnipotent203'
 password = 'aditya1234'
 
 tv=TvDatafeed(username, password, chromedriver_path=None)
 
+
+#st.beta_set_page_config(page_title='Velocity Trading')
 def timePeriodFormatter(timePeriod):
     if (timePeriod=="1m"):
         resolution=Interval.in_1_minute
@@ -61,7 +65,7 @@ def signal(data,mag=100):
     addPlot2= mpf.make_addplot(sigShort[-mag:],type='scatter',markersize=50,marker='v')
     return addPlot1,addPlot2
 
-def trades(data):
+def currTrade(data):
     data.reset_index(inplace=True,drop=False)
     curr=data.iloc[-1]
     rev=data[data['reversal']==1].iloc[-1]
@@ -76,8 +80,10 @@ def trades(data):
         position="Short"
     net=round(net,2)
     data.set_index("datetime",drop=True,inplace=True)
-    tradeOutput="Last Trade : "+str(position)+" Entry Time : "+str(rev.datetime)+" Entry Price : "+str(entry)+' Current Time : '+str(curr.datetime)+' Current Price : '+str(price)+" Net : "+str(net)
-    trade.text(tradeOutput)
+    data=[position,rev.datetime,curr.datetime,entry,price,net]
+    tradeOutput=["Type","Entry Time",'Current Time',"Entry Price",'Current Price',"Net"]
+    df = pd.DataFrame([data], columns = tradeOutput)
+    return df
 
 def ma(data, length, type, mag=100):
     if(type=='ema'):
@@ -136,7 +142,65 @@ def psar(data, psarAf, psarMaxAf,mag=100):
     addPlot=[addPlot1,addPlot2]
     return data,addPlot
 
-def datafeed(stop=False,
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
+def get_table_download_link(df):
+    """Generates a link allowing the data in a given panda dataframe to be downloaded
+    in:  dataframe
+    out: href string
+    """
+    val = to_excel(df)
+    b64 = base64.b64encode(val)  # val looks like b'...'
+    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="download.xlsx">Download excel file</a>' # decode b'abc' => abc
+
+
+def backtest(data,start,end,comm):
+    trades=data[data['reversal']==1]
+    trades.reset_index(inplace=True)
+    #start=pd.Timestamp(start)
+    #end=pd.Timestamp(end)
+    trades['date']=trades['datetime'].dt.date
+    trades=trades[(trades['date']>=start) & (trades['date']<=end)]
+    trades['Entry Time']=trades['datetime'].shift(1)
+    trades['Exit Time']=trades['datetime']
+    trades['Type']='Short'
+    trades.loc[trades['pos'].shift(1)==1.0,'Type']='Long'
+    trades['Entry']=trades['open'].shift(1)
+    trades['Exit']=trades['open']
+    trades['Net']=trades['open']-trades['open'].shift(1)
+    trades.loc[trades['Type']=='Short','Net']=-1.0*trades['Net']
+    trades['Net']=trades['Net']-(trades['open']*comm/100)
+    trades['Total P/L']=trades['Net'].cumsum(axis=0)
+    trades['Symbol']=trades['symbol']
+    trades['Price']=trades['open']
+    trades['ROI']=(trades['Net']/trades['Entry'])*100
+    trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','Price','ROI']]
+    totalNet=trades.iloc[-1]['Total P/L']
+    totalComm=(comm/100)*trades['Entry'].sum()
+    netLong=trades.loc[trades['Type']=='Long','Net'].sum()
+    netShort=trades.loc[trades['Type']=='Short','Net'].sum()
+    trades.reset_index(inplace=True,drop=True)
+    trades.dropna(inplace=True)
+    placeholder.line_chart(trades['Price'], use_container_width=True)
+    chart2.line_chart(trades['Total P/L'], use_container_width=True)
+    data=[netLong,netShort,totalComm,totalNet]
+    tradeOutput=["Net Long(After Commissions)","Net Short(After Commissions)","Total Commissions","Net P/L(After Commissions)"]
+    df = pd.DataFrame([data], columns = tradeOutput)
+    lastRefresh.write(df)
+    trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','ROI']]
+    ohlc.write(trades)
+    st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
+    
+
+    
+
+def datafeed(commission,start_date,end_date,mode,stop=False,
 resolution="1m",
 tick='BTCUSD',
 exc='Bitstamp',
@@ -158,16 +222,16 @@ waitTime=30):
     while(stop!=True):
         clear_output(wait=True)
         df=data
+        message.empty()
         try:
-            data=tv.get_hist(tick, exc,interval=resolution,n_bars=1000)
+            if(future==1 | future==2):
+                data=tv.get_hist(tick, exc,interval=resolution,n_bars=5000,fut_contract=future)
+            else:
+                data=tv.get_hist(tick, exc,interval=resolution,n_bars=5000)
         except:
-            st.error('Connection Error')
-            st.stop()
+            message.error('Connection Error Retrying')
+            time.sleep(waitTime)
             data=df
-        if(future==1 | future==2):
-            data=tv.get_hist(tick, exc,interval=resolution,n_bars=1000,fut_contract=future)
-        else:
-            data=tv.get_hist(tick, exc,interval=resolution,n_bars=1000)
         if(indicator==1):
             data, plots=ma(data,ma_len,"ema",mag)
         elif(indicator==2):
@@ -180,22 +244,25 @@ waitTime=30):
             data, plots=psar(data,psarAf,psarMaxAf)
         else:
             data, plots=ma(data,ma_len,"ema",mag)
-
+        if mode=='Backtesting':
+            backtest(data,start_date,end_date,commission)
+            break
+        
         plots = [x for x in plots if np.isnan(x['data']).all() == False]
         
         placeholder.pyplot(mpf.plot(data.tail(mag),hlines=dict(hlines=[data['close'].iloc[-1]],colors=['b'],linestyle='-.'),type='candle',style='yahoo',title = tick,tight_layout=True,addplot=plots,figsize=(8, 3)))
         lstRef="Last Chart Refresh - "+str(datetime.datetime.now().time())
         lastRefresh.text(lstRef)
-        trades(data)
+        trade.write(currTrade(data))
         ohlc.write(data[['symbol','open','high','low','close']].tail(mag))
         #time.sleep(waitTime)
 
 def main():
-    datafeed(stop,timePeriod,tick,exc,indicator,future,mag,ma_len,fastMa,midMa,slowMa,atrlen,superMult,psarAf,psarMaxAf,waitTime)
+    datafeed(commission,start_date,end_date,mode,stop,timePeriod,tick,exc,indicator,future,mag,ma_len,fastMa,midMa,slowMa,atrlen,superMult,psarAf,psarMaxAf,waitTime)
 
-    
+
 st.set_page_config(layout="wide")
-st.sidebar.title('Control Panel')
+st.sidebar.header('Control Panel')
 st.title('Velocity Trading')
 mark=st.markdown("""
   Use the menu on the left to select data and set plot parameters, and then click Start
@@ -207,7 +274,7 @@ tick='TCS'
 exc='NSE'
 future=0
 waitTime=1
-
+mode='Live Trades'
 indicator=1
 
 # 1   -   EMA
@@ -223,11 +290,16 @@ fastMa=5
 midMa=20
 slowMa=200
 
-atrlen=10
-superMult=3
+atrlen=5
+superMult=1
 
 psarAf=0.02
 psarMaxAf=0.2
+
+commission=0.0
+start_date=end_date=today=tommorow=0
+
+mode = st.sidebar.selectbox('Select Mode:', ( "Live Trades","Backtesting"))
 
 tick = st.sidebar.text_input('Ticker:', 'NIFTY')
 if st.sidebar.checkbox("Future"):
@@ -261,18 +333,27 @@ timePeriod = st.sidebar.selectbox('Select Time Period:', ( "1m","3m","5m","15m",
 
 
 
-#hide_menu_style = """
-#        <style>
-#        #MainMenu {visibility: hidden;}
-#        </style>
-#        """
-#st.markdown(hide_menu_style, unsafe_allow_html=True)
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
 
 
-
-mag = st.sidebar.slider('Chart Magnification :', 1, 200, 100)
-
+if mode=="Live Trades":
+    mag = st.sidebar.slider('Chart Magnification :', 1, 200, 100)
+else:
+    today = datetime.date.today()
+    before = today - datetime.timedelta(days=10)
+    start_date = st.sidebar.date_input('Start date', before)
+    end_date = st.sidebar.date_input('End date', today)
+    if start_date > end_date:
+        st.sidebar.error('Error: End date must fall after start date.')
+    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.25)
+   
 start_button = st.sidebar.empty()
 stop_button = st.sidebar.empty()
 #with st.spinner('Wait for it...'):
@@ -280,7 +361,9 @@ stop_button = st.sidebar.empty()
 #st.success('Done!')
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
+message=st.empty()
 placeholder = st.empty()
+chart2=st.empty()
 lastRefresh=st.empty()
 trade=st.empty()
 ohlc=st.empty()
@@ -291,5 +374,4 @@ if start_button.button('start',key='start'):
     mark.empty()
     if stop_button.button('stop',key='stop'):
         pass
-    while True:
-        main()
+    main()
