@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import mplfinance as mpf
-from tvDatafeed import TvDatafeed,Interval
+#from tvDatafeed import TvDatafeed,Interval
 import datetime
 import time
 import pandas_ta as ta
@@ -12,6 +12,7 @@ import math
 import altair as alt
 import base64
 from io import BytesIO
+from tvDatafeed.main import TvDatafeed,Interval
 
 username = 'omnipotent203'
 password = 'aditya1234'
