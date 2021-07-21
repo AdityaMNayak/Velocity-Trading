@@ -6,7 +6,6 @@ import mplfinance as mpf
 import datetime
 import time
 import pandas_ta as ta
-from pynse import *
 from IPython.display import clear_output
 import math
 import altair as alt
