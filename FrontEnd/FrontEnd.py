@@ -13,10 +13,9 @@ import base64
 from io import BytesIO
 from tvDatafeed.main import TvDatafeed,Interval
 
-username = 'omnipotent203'
-password = 'aditya1234'
 
-tv=TvDatafeed(username, password, chromedriver_path=None)
+
+tv=TvDatafeed(chromedriver_path=None)
 
 
 #st.beta_set_page_config(page_title='Velocity Trading')

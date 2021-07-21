@@ -192,17 +192,17 @@ class TvDatafeed:
                     token = contents["token"]
                 self.chromedriver_path = contents["chromedriver_path"]
 
-            if token is None:
-                if self.chromedriver_path is None or not os.path.exists(
-                    self.chromedriver_path
-                ):
-                    if (
-                        input(
-                            "\nchromedriver not found. do you want to autoinstall chromedriver?? y/n"
-                        ).lower()
-                        == "y"
-                    ):
-                        self.__install_chromedriver()
+            #if token is None:
+            #    if self.chromedriver_path is None or not os.path.exists(
+            #        self.chromedriver_path
+            #    ):
+            #        if (
+            #            input(
+            #                "\nchromedriver not found. do you want to autoinstall chromedriver?? y/n"
+            #            ).lower()
+            #            == "y"
+            #        ):
+            #            self.__install_chromedriver()
 
                 token = self.__get_token(username, password, self.chromedriver_path)
                 if token is not None:
