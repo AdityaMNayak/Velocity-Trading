@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import mplfinance as mpf
-#from tvDatafeed import TvDatafeed,Interval
 import datetime
 import time
 import pandas_ta as ta
@@ -73,10 +72,10 @@ def currTrade(data):
     price=curr.close
     if currPosition==1:
         net=price-entry
-        position="Long"
+        position="Buy"
     else:
         net=entry-price
-        position="Short"
+        position="Sell"
     net=round(net,2)
     data.set_index("datetime",drop=True,inplace=True)
     data=[position,rev.datetime,curr.datetime,entry,price,net]
@@ -124,6 +123,7 @@ def ftsma(data, lenFast, lenMid, lenSlow, mag=100):
 def supertrend(data, atrlen, superMult,mag=100):
     df=ta.supertrend(data['high'],data['low'],data['close'],atrlen,superMult)
     data['pos']=df.iloc[:,1]
+    data.pos=data.pos.shift(1)
     data['reversal']=0
     data.loc[data['pos'].shift(1)!=data['pos'],'reversal']=1
     addPlot1,addPlot2=signal(data,mag)
@@ -135,6 +135,7 @@ def psar(data, psarAf, psarMaxAf,mag=100):
     data['pos']=df.iloc[:,0]
     data=data.fillna(-1)
     data.loc[data['pos']!=-1.0,'pos']=1
+    data.pos=data.pos.shift(1)
     data['reversal']=0
     data.loc[data['pos'].shift(1)!=data['pos'],'reversal']=1
     addPlot1,addPlot2=signal(data,mag)
@@ -159,21 +160,19 @@ def get_table_download_link(df):
     return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="download.xlsx">Download excel file</a>' # decode b'abc' => abc
 
 
-def backtest(data,start,end,comm):
+def backtest(data,start,end,comm=0.0,flag=1):
     trades=data[data['reversal']==1]
     trades.reset_index(inplace=True)
-    #start=pd.Timestamp(start)
-    #end=pd.Timestamp(end)
     trades['date']=trades['datetime'].dt.date
     trades=trades[(trades['date']>=start) & (trades['date']<=end)]
     trades['Entry Time']=trades['datetime'].shift(1)
     trades['Exit Time']=trades['datetime']
-    trades['Type']='Short'
-    trades.loc[trades['pos'].shift(1)==1.0,'Type']='Long'
+    trades['Type']='Sell'
+    trades.loc[trades['pos'].shift(1)==1.0,'Type']='Buy'
     trades['Entry']=trades['open'].shift(1)
     trades['Exit']=trades['open']
     trades['Net']=trades['open']-trades['open'].shift(1)
-    trades.loc[trades['Type']=='Short','Net']=-1.0*trades['Net']
+    trades.loc[trades['Type']=='Sell','Net']=-1.0*trades['Net']
     trades['Net']=trades['Net']-(trades['open']*comm/100)
     trades['Total P/L']=trades['Net'].cumsum(axis=0)
     trades['Symbol']=trades['symbol']
@@ -182,19 +181,24 @@ def backtest(data,start,end,comm):
     trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','Price','ROI']]
     totalNet=trades.iloc[-1]['Total P/L']
     totalComm=(comm/100)*trades['Entry'].sum()
-    netLong=trades.loc[trades['Type']=='Long','Net'].sum()
-    netShort=trades.loc[trades['Type']=='Short','Net'].sum()
+    netLong=trades.loc[trades['Type']=='Buy','Net'].sum()
+    netShort=trades.loc[trades['Type']=='Sell','Net'].sum()
     trades.reset_index(inplace=True,drop=True)
     trades.dropna(inplace=True)
-    placeholder.line_chart(trades['Price'], use_container_width=True)
-    chart2.line_chart(trades['Total P/L'], use_container_width=True)
     data=[netLong,netShort,totalComm,totalNet]
     tradeOutput=["Net Long(After Commissions)","Net Short(After Commissions)","Total Commissions","Net P/L(After Commissions)"]
     df = pd.DataFrame([data], columns = tradeOutput)
-    lastRefresh.write(df)
-    trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','ROI']]
-    ohlc.write(trades)
-    st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
+    if flag==1:
+        placeholder.line_chart(trades['Price'], use_container_width=True)
+        chart2.line_chart(trades['Total P/L'], use_container_width=True)
+        lastRefresh.write(df)
+        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','ROI']]
+        ohlc.write(trades)
+        st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
+    else:
+        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','ROI']]
+        ohlc.write(trades.tail(10))
+    
     
 
     
@@ -253,7 +257,7 @@ waitTime=30):
         lstRef="Last Chart Refresh - "+str(datetime.datetime.now().time())
         lastRefresh.text(lstRef)
         trade.write(currTrade(data))
-        ohlc.write(data[['symbol','open','high','low','close']].tail(mag))
+        backtest(data,start_date,end_date,flag=0)
         #time.sleep(waitTime)
 
 def main():
@@ -261,7 +265,6 @@ def main():
 
 
 st.set_page_config(layout="wide")
-st.sidebar.header('Control Panel')
 st.title('Velocity Trading')
 mark=st.markdown("""
   Use the menu on the left to select data and set plot parameters, and then click Start
@@ -296,7 +299,9 @@ psarAf=0.02
 psarMaxAf=0.2
 
 commission=0.0
-start_date=end_date=today=tommorow=0
+today=tommorow=0
+end_date=datetime.date.today()
+start_date=end_date-datetime.timedelta(days=10)
 
 mode = st.sidebar.selectbox('Select Mode:', ( "Live Trades","Backtesting"))
 
@@ -345,13 +350,27 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 if mode=="Live Trades":
     mag = st.sidebar.slider('Chart Magnification :', 1, 200, 100)
 else:
-    today = datetime.date.today()
-    before = today - datetime.timedelta(days=10)
-    start_date = st.sidebar.date_input('Start date', before)
-    end_date = st.sidebar.date_input('End date', today)
+    testDur = st.sidebar.selectbox('Select Backtest Duration:', ( "1D","1W","1M","3M","6M","1Y"))
+    if(testDur=='1D'):
+        start_date=end_date-datetime.timedelta(days=1)
+    elif(testDur=='1W'):
+        start_date=end_date-datetime.timedelta(days=7)
+    elif(testDur=='1M'):
+        start_date=end_date-datetime.timedelta(days=30)
+    elif(testDur=='3M'):
+        start_date=end_date-datetime.timedelta(days=90)
+    elif(testDur=='6M'):
+        start_date=end_date-datetime.timedelta(days=180)
+    elif(testDur=='1Y'):
+        start_date=end_date-datetime.timedelta(days=365)
+    else:
+        start_date=end_date-datetime.timedelta(days=30)
+    start_date = st.sidebar.date_input('Start date', start_date)
+    end_date = st.sidebar.date_input('End date', end_date)
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
-    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.25)
+    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125)
+    commission*=2
    
 start_button = st.sidebar.empty()
 stop_button = st.sidebar.empty()
