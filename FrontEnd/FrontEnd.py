@@ -77,9 +77,10 @@ def currTrade(data):
         net=entry-price
         position="Sell"
     net=round(net,2)
+    row=data.iloc[4]
     data.set_index("datetime",drop=True,inplace=True)
-    data=[position,rev.datetime,curr.datetime,entry,price,net]
-    tradeOutput=["Type","Entry Time",'Current Time',"Entry Price",'Current Price',"Net"]
+    data=[row.symbol,position,rev.datetime.date(),rev.datetime.time(),curr.datetime.date(),curr.datetime.time(),entry,price,net]
+    tradeOutput=["Symbol","Signal",'Entry Date','Entry Time','Current Date','Current Time',"Entry Price",'Current Price',"Net"]
     df = pd.DataFrame([data], columns = tradeOutput)
     return df
 
@@ -97,7 +98,7 @@ def ma(data, length, type, mag=100):
     addPlot1,addPlot2=signal(data,mag)
     addPlot3 = mpf.make_addplot(data['ma'].tail(mag))
     addPlot=[addPlot1,addPlot2,addPlot3]
-    
+    data=data[data['ma'].notna()]
     return data,addPlot
 
 def ftsma(data, lenFast, lenMid, lenSlow, mag=100):
@@ -157,56 +158,68 @@ def get_table_download_link(df):
     """
     val = to_excel(df)
     b64 = base64.b64encode(val)  # val looks like b'...'
-    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="download.xlsx">Download excel file</a>' # decode b'abc' => abc
+    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="download.xlsx">Download list of trades as an excel file</a>' # decode b'abc' => abc
 
 
-def backtest(data,start,end,comm=0.0,flag=1):
+def backtest(data,start,end,comm=0.0,flag=1,mult=5):
     trades=data[data['reversal']==1]
     trades.reset_index(inplace=True)
     trades['date']=trades['datetime'].dt.date
     trades=trades[(trades['date']>=start) & (trades['date']<=end)]
-    trades['Entry Time']=trades['datetime'].shift(1)
-    trades['Exit Time']=trades['datetime']
-    trades['Type']='Sell'
-    trades.loc[trades['pos'].shift(1)==1.0,'Type']='Buy'
+    if trades.empty:
+        placeholder1.write("No trades executed during this time interval")
+        return 0
+    trades['Entry Time']=trades['datetime'].shift(1).dt.time
+    trades['Exit Time']=trades['datetime'].dt.time
+    trades['Entry Date']=trades['datetime'].shift(1).dt.date
+    trades['Exit Date']=trades['datetime'].dt.date
+    trades['Signal']='Sell'
+    trades.loc[trades['pos'].shift(1)==1.0,'Signal']='Buy'
     trades['Entry']=trades['open'].shift(1)
     trades['Exit']=trades['open']
-    trades['Net']=trades['open']-trades['open'].shift(1)
-    trades.loc[trades['Type']=='Sell','Net']=-1.0*trades['Net']
-    trades['Net']=trades['Net']-(trades['open']*comm/100)
-    trades['Total P/L']=trades['Net'].cumsum(axis=0)
+    trades['Net(After Commissions)']=(trades['open']-trades['open'].shift(1))*mult
+    trades.loc[trades['Signal']=='Sell','Net(After Commissions)']=-1.0*trades['Net(After Commissions)']
+    trades['Net(After Commissions)']=trades['Net(After Commissions)']-(trades['open']*comm*mult/100)
+    trades['Total P/L(After Commissions)']=trades['Net(After Commissions)'].cumsum(axis=0)
     trades['Symbol']=trades['symbol']
     trades['Price']=trades['open']
-    trades['ROI']=(trades['Net']/trades['Entry'])*100
-    trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','Price','ROI']]
-    totalNet=trades.iloc[-1]['Total P/L']
-    totalComm=(comm/100)*trades['Entry'].sum()
-    netLong=trades.loc[trades['Type']=='Buy','Net'].sum()
-    netShort=trades.loc[trades['Type']=='Sell','Net'].sum()
+    trades['ROI(%)']=(trades['Net(After Commissions)']/trades['Entry'])*100/mult
+    buyHold=trades['close'].iloc[-1]-trades['open'].iloc[0]
+    startVal=trades['open'].iloc[0]
+    trades=trades[['Symbol','Entry Date','Entry Time','Exit Date','Exit Time','Signal','Entry','Exit','Net(After Commissions)','Total P/L(After Commissions)','Price','ROI(%)','datetime']]
+    totalNet=trades.iloc[-1]['Total P/L(After Commissions)']
+    totalComm=(comm/100)*mult*trades['Entry'].sum()
+    netLong=trades.loc[trades['Signal']=='Buy','Net(After Commissions)'].sum()
+    netShort=trades.loc[trades['Signal']=='Sell','Net(After Commissions)'].sum()
     trades.reset_index(inplace=True,drop=True)
     trades.dropna(inplace=True)
-    rows=[netLong,netShort,totalComm,totalNet]
-    tradeOutput=["Net Long(After Commissions)","Net Short(After Commissions)","Total Commissions","Net P/L(After Commissions)"]
+    rows=[netLong,netShort,len(trades.index),totalComm,totalNet,(netLong/(startVal*mult))*100,(totalNet/(startVal*mult))*100,buyHold*mult,(buyHold/startVal)*100]
+    tradeOutput=["Net Buy(After Commissions)","Net Sell(After Commissions)","Trades","Total Commissions","Net P/L(After Commissions)","Buy ROI(%)","Total Buy/Sell ROI(%)","Buy and Hold P/L","Buy Hold ROI(%)"]
     df = pd.DataFrame([rows], columns = tradeOutput)
+    trades['Net']=trades['Net(After Commissions)']
     if flag==1:
-        trades['Buy P/L']=trades[trades['Type']=='Buy'].Net.cumsum()
+        trades['Buy P/L(After Commissions)']=trades[trades['Signal']=='Buy'].Net.cumsum()
         trades=trades.ffill()
+        trades.set_index('datetime',inplace=True)
         placeholder1.line_chart(trades['Price'], use_container_width=True)
-        placeholder2.line_chart(trades['Buy P/L'], use_container_width=True)
-        placeholder3.line_chart(trades['Total P/L'], use_container_width=True)
+        placeholder2.line_chart(trades['Buy P/L(After Commissions)'], use_container_width=True)
+        placeholder3.line_chart(trades['Total P/L(After Commissions)'], use_container_width=True)
         placeholder4.write(df)
-        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','Buy P/L','ROI']]
+        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net(After Commissions)','Total P/L(After Commissions)','Buy P/L(After Commissions)','ROI(%)']]
+        trades.reset_index(drop=True,inplace=True)
         placeholder5.write(trades)
         st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
     else:
-        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','ROI']]
-        placeholder4.write(trades.tail(10),use_container_width=True)
+        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net','ROI(%)']]
+        df=trades.iloc[-10:]
+        df=df.reset_index(drop=True)
+        placeholder4.write(df,use_container_width=True)
     
     
 
     
 
-def datafeed(commission,start_date,end_date,mode,stop=False,
+def datafeed(mult,commission,start_date,end_date,mode,stop=False,
 resolution="1m",
 tick='BTCUSD',
 exc='Bitstamp',
@@ -251,7 +264,7 @@ waitTime=30):
         else:
             data, plots=ma(data,ma_len,"ema",mag)
         if mode=='Backtesting':
-            backtest(data,start_date,end_date,commission)
+            backtest(data,start_date,end_date,commission,mult=mult)
             break
         
         plots = [x for x in plots if np.isnan(x['data']).all() == False]
@@ -259,20 +272,20 @@ waitTime=30):
         placeholder1.pyplot(mpf.plot(data.tail(mag),hlines=dict(hlines=[data['close'].iloc[-1]],colors=['b'],linestyle='-.'),type='candle',style='yahoo',title = tick,tight_layout=True,addplot=plots,figsize=(8, 3)))
         lstRef="Last Chart Refresh - "+str(datetime.datetime.now().time())
         placeholder2.text(lstRef)
-        placeholder3.write(currTrade(data),use_container_width=True)
+        placeholder3.write(currTrade(data),use_container_width=False)
         backtest(data,start_date,end_date,flag=0)
         #time.sleep(waitTime)
 
 def main():
-    datafeed(commission,start_date,end_date,mode,stop,timePeriod,tick,exc,indicator,future,mag,ma_len,fastMa,midMa,slowMa,atrlen,superMult,psarAf,psarMaxAf,waitTime)
+    datafeed(mult,commission,start_date,end_date,mode,stop,timePeriod,tick,exc,indicator,future,mag,ma_len,fastMa,midMa,slowMa,atrlen,superMult,psarAf,psarMaxAf,waitTime)
 
 
 st.set_page_config(layout="wide")
-st.title('Velocity Trading')
+st.title('Velocite Trading')
 mark=st.markdown("""
   Use the menu on the left to select data and set plot parameters, and then click Start
 """)
-
+mult=1
 stop=False
 timePeriod="1"
 tick='TCS'
@@ -319,24 +332,24 @@ exc = st.sidebar.text_input('Exchange:', 'NSE')
 
 
 
-indicatorSelect = st.sidebar.radio("Select Indicator :",('EVelocity', 'WMA', 'FTSMA','SuperTrend','Parabolic SAR'))
+indicatorSelect = st.sidebar.radio("Select Indicator :",('E-Velocite', 'W-Velocite', 'F-Velocite','S-Velocite','P-Velocite'))
 
 
 
-if indicatorSelect == 'EVelocity':
+if indicatorSelect == 'E-Velocite':
     indicator=1
-elif indicatorSelect == 'WMA':
+elif indicatorSelect == 'W-Velocite':
     indicator=2
-elif indicatorSelect == 'FTSMA':
+elif indicatorSelect == 'F-Velocite':
     indicator=3
-elif indicatorSelect == 'SuperTrend':
+elif indicatorSelect == 'S-Velocite':
     indicator=4
-elif indicatorSelect == 'Parabolic SAR':
+elif indicatorSelect == 'P-Velocite':
     indicator=5
 else:
     indicator=1
 
-timePeriod = st.sidebar.selectbox('Select Time Period:', ( "1m","3m","5m","15m","30m","45m","1H","2H","3H","4H","1D","1W","1M"))
+timePeriod = st.sidebar.selectbox('Select Time Period:', ( "15m","1m","3m","5m","30m","45m","1H","2H","3H","4H","1D","1W","1M"))
 
 
 
@@ -353,7 +366,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 if mode=="Live Trades":
     mag = st.sidebar.slider('Chart Magnification :', 1, 200, 100)
 else:
-    testDur = st.sidebar.selectbox('Select Backtest Duration:', ( "1D","1W","1M","3M","6M","1Y"))
+    testDur = st.sidebar.selectbox('Select Backtest Duration:', ("1W","1D","1M","3M","6M","1Y"))
     if(testDur=='1D'):
         start_date=end_date-datetime.timedelta(days=1)
     elif(testDur=='1W'):
@@ -373,6 +386,7 @@ else:
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
     commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125)
+    mult = st.sidebar.number_input('Number of Contracts',value=1,min_value=1)
     commission*=2
    
 start_button = st.sidebar.empty()
