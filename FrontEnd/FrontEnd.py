@@ -185,19 +185,22 @@ def backtest(data,start,end,comm=0.0,flag=1):
     netShort=trades.loc[trades['Type']=='Sell','Net'].sum()
     trades.reset_index(inplace=True,drop=True)
     trades.dropna(inplace=True)
-    data=[netLong,netShort,totalComm,totalNet]
+    rows=[netLong,netShort,totalComm,totalNet]
     tradeOutput=["Net Long(After Commissions)","Net Short(After Commissions)","Total Commissions","Net P/L(After Commissions)"]
-    df = pd.DataFrame([data], columns = tradeOutput)
+    df = pd.DataFrame([rows], columns = tradeOutput)
     if flag==1:
-        placeholder.line_chart(trades['Price'], use_container_width=True)
-        chart2.line_chart(trades['Total P/L'], use_container_width=True)
-        lastRefresh.write(df)
-        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','ROI']]
-        ohlc.write(trades)
+        trades['Buy P/L']=trades[trades['Type']=='Buy'].Net.cumsum()
+        trades=trades.ffill()
+        placeholder1.line_chart(trades['Price'], use_container_width=True)
+        placeholder2.line_chart(trades['Buy P/L'], use_container_width=True)
+        placeholder3.line_chart(trades['Total P/L'], use_container_width=True)
+        placeholder4.write(df)
+        trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','Total P/L','Buy P/L','ROI']]
+        placeholder5.write(trades)
         st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
     else:
         trades=trades[['Symbol','Entry Time','Exit Time','Type','Entry','Exit','Net','ROI']]
-        ohlc.write(trades.tail(10))
+        placeholder4.write(trades.tail(10),use_container_width=True)
     
     
 
@@ -253,10 +256,10 @@ waitTime=30):
         
         plots = [x for x in plots if np.isnan(x['data']).all() == False]
         
-        placeholder.pyplot(mpf.plot(data.tail(mag),hlines=dict(hlines=[data['close'].iloc[-1]],colors=['b'],linestyle='-.'),type='candle',style='yahoo',title = tick,tight_layout=True,addplot=plots,figsize=(8, 3)))
+        placeholder1.pyplot(mpf.plot(data.tail(mag),hlines=dict(hlines=[data['close'].iloc[-1]],colors=['b'],linestyle='-.'),type='candle',style='yahoo',title = tick,tight_layout=True,addplot=plots,figsize=(8, 3)))
         lstRef="Last Chart Refresh - "+str(datetime.datetime.now().time())
-        lastRefresh.text(lstRef)
-        trade.write(currTrade(data))
+        placeholder2.text(lstRef)
+        placeholder3.write(currTrade(data),use_container_width=True)
         backtest(data,start_date,end_date,flag=0)
         #time.sleep(waitTime)
 
@@ -380,11 +383,11 @@ stop_button = st.sidebar.empty()
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 message=st.empty()
-placeholder = st.empty()
-chart2=st.empty()
-lastRefresh=st.empty()
-trade=st.empty()
-ohlc=st.empty()
+placeholder1 = st.empty()
+placeholder2=st.empty()
+placeholder3=st.empty()
+placeholder4=st.empty()
+placeholder5=st.empty()
 
 
 if start_button.button('start',key='start'):
