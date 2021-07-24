@@ -11,9 +11,9 @@ import altair as alt
 import base64
 from io import BytesIO
 from tvDatafeed.main import TvDatafeed,Interval
+from PIL import Image
 
-
-
+image = Image.open('stockPic.jpg')
 tv=TvDatafeed(chromedriver_path=None)
 
 
@@ -397,7 +397,7 @@ stop_button = st.sidebar.empty()
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 message=st.empty()
-placeholder1 = st.empty()
+placeholder1 = st.image(image)
 placeholder2=st.empty()
 placeholder3=st.empty()
 placeholder4=st.empty()
