@@ -13,7 +13,7 @@ from io import BytesIO
 from tvDatafeed.main import TvDatafeed,Interval
 from PIL import Image
 
-image = Image.open('stockPic.jpg')
+image = Image.open('..\stockPic.jpg')
 tv=TvDatafeed(chromedriver_path=None)
 
 
