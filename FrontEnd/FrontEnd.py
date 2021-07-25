@@ -13,7 +13,7 @@ from io import BytesIO
 from tvDatafeed.main import TvDatafeed,Interval
 from PIL import Image
 
-image = Image.open('..\stockPic.jpg')
+#image = Image.open('..\stockPic.jpg')
 tv=TvDatafeed(chromedriver_path=None)
 
 
@@ -386,7 +386,7 @@ else:
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
     commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125)
-    mult = st.sidebar.number_input('Number of Contracts',value=1,min_value=1)
+    mult = st.sidebar.number_input('Number of Units',value=1,min_value=1)
     commission*=2
    
 start_button = st.sidebar.empty()
@@ -398,6 +398,7 @@ stop_button = st.sidebar.empty()
 st.set_option('deprecation.showPyplotGlobalUse', False)
 message=st.empty()
 placeholder1 = st.image(image)
+placeholder1 = st.empty()
 placeholder2=st.empty()
 placeholder3=st.empty()
 placeholder4=st.empty()
