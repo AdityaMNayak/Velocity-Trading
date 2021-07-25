@@ -323,7 +323,7 @@ start_date=end_date-datetime.timedelta(days=10)
 
 mode = st.sidebar.selectbox('Select Mode:', ( "Live Trades","Backtesting"))
 
-df=pd.read_csv(r"../FrontEnd/TickerList.csv")
+df=pd.read_csv(r"..TickerList.csv")
 df=df[['Symbol','Company Name']]
 
 tick = st.sidebar.selectbox('Ticker:', df['Company Name'])
