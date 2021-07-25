@@ -397,7 +397,7 @@ stop_button = st.sidebar.empty()
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 message=st.empty()
-placeholder1 = st.image(image)
+#placeholder1 = st.image(image)
 placeholder1 = st.empty()
 placeholder2=st.empty()
 placeholder3=st.empty()
