@@ -17,6 +17,8 @@ from PIL import Image
 tv=TvDatafeed(chromedriver_path=None)
 
 
+
+
 #st.beta_set_page_config(page_title='Velocity Trading')
 def timePeriodFormatter(timePeriod):
     if (timePeriod=="1m"):
@@ -321,15 +323,21 @@ start_date=end_date-datetime.timedelta(days=10)
 
 mode = st.sidebar.selectbox('Select Mode:', ( "Live Trades","Backtesting"))
 
-tick = st.sidebar.text_input('Ticker:', 'NIFTY')
+df=pd.read_csv(r"TickerList.csv")
+df=df[['Symbol','Company Name']]
+
+tick = st.sidebar.selectbox('Ticker:', df['Company Name'])
+tick=df.loc[df['Company Name']==tick,'Symbol']
+tick=tick.tolist()
+tick=tick[0]
 if st.sidebar.checkbox("Future"):
     option = st.sidebar.selectbox('Select Expiry',('Current Month Expiry', 'Next Month Expiry'))
     if(option=="Current Month Expiry"):
         future=1
     else:
         future=2
-exc = st.sidebar.text_input('Exchange:', 'NSE')
-
+#exc = st.sidebar.text_input('Exchange:', 'NSE')
+exc='NSE'
 
 
 indicatorSelect = st.sidebar.radio("Select Indicator :",('E-Velocite', 'W-Velocite', 'F-Velocite','S-Velocite','P-Velocite'))
@@ -405,9 +413,12 @@ placeholder4=st.empty()
 placeholder5=st.empty()
 
 
+
 if start_button.button('start',key='start'):
     start_button.empty()
     mark.empty()
     if stop_button.button('stop',key='stop'):
         pass
     main()
+    
+    
