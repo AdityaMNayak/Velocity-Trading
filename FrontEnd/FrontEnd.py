@@ -12,6 +12,7 @@ import base64
 from io import BytesIO
 from tvDatafeed.main import TvDatafeed,Interval
 from PIL import Image
+from pathlib import Path
 
 #image = Image.open('..\stockPic.jpg')
 tv=TvDatafeed(chromedriver_path=None)
@@ -323,7 +324,8 @@ start_date=end_date-datetime.timedelta(days=10)
 
 mode = st.sidebar.selectbox('Select Mode:', ( "Live Trades","Backtesting"))
 
-df=pd.read_csv(r"../../Velocity-Trading/FrontEnd/TickerList.csv")
+tickFile = Path(__file__).parents[1] / 'FrontEnd/TickerList.csv'
+df=pd.read_csv(tickFile)
 df=df[['Symbol','Company Name']]
 
 tick = st.sidebar.selectbox('Ticker:', df['Company Name'])
