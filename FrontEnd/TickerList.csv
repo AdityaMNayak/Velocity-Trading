@@ -1,6 +1,6 @@
 Sr. No.,Symbol,Company Name,"Market capitalization 
 (Rs in Lakhs)"
-0,NIFTY,NIFTY 50,0
+0,NIFTY,NIFTY,0
 0,BANKNIFTY,BANKNIFTY,0
 1,RELIANCE,Reliance Industries Limited,0
 2,TCS,Tata Consultancy Services Limited,126985361
@@ -113,6 +113,7 @@ Sr. No.,Symbol,Company Name,"Market capitalization
 109,HINDPETRO,Hindustan Petroleum Corporation Limited,3488741
 110,MINDTREE,MindTree Limited,3443440
 111,3MINDIA,3M India Limited,3432595
+116,Zomato,Zomato LTD,
 112,PIIND,PI Industries Limited,3428710
 113,PAGEIND,Page Industries Limited,3425917
 114,PETRONET,Petronet LNG Limited,3381570
