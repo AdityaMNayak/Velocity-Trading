@@ -168,10 +168,6 @@ def get_table_download_link(df):
 
 def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=datetime.date.today(),comm=0.0,flag=0,mult=1,buyHold=0):
     trades=data
-    trades.reset_index(inplace=True)
-    trades['date']=trades['datetime'].dt.date
-    trades=trades[(trades['date']>=start) & (trades['date']<=end)]
-    buyHold=trades['close'].iloc[-1]-buyHold
     trades=trades[trades['reversal']==1]
     if trades.empty & flag==1:
         placeholder1.write("No trades executed during this time interval")
@@ -276,8 +272,13 @@ waitTime=30):
                 pass
             data=df
         data.round(2)
-        buyHold=data['open'].iloc[0]
-        
+        buyHold=0
+        if mode=='Backtesting':
+            data.reset_index(inplace=True)
+            data['date']=data['datetime'].dt.date
+            data=data[(data['date']>=start_date) & (data['date']<=end_date)]
+            buyHold=data['close'].iloc[-1]-data['open'].iloc[0]
+
         if(indicator==1):
             data, plots=ma(data,ma_len,"ema",mag)
         elif(indicator==2):
