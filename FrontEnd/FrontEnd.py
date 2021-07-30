@@ -66,7 +66,7 @@ def signal(data,mag=100):
     addPlot2= mpf.make_addplot(sigShort[-mag:],type='scatter',markersize=50,marker='v')
     return addPlot1,addPlot2
 
-def currTrade(data):
+def currTrade(data, commission,mult=1):
     data.reset_index(inplace=True,drop=False)
     curr=data.iloc[-1]
     rev=data[data['reversal']==1].iloc[-1]
@@ -79,7 +79,7 @@ def currTrade(data):
     else:
         net=entry-price
         position="Sell"
-    net=round(net,2)
+    net=(round(net,2)-(entry*commission/200))*mult
     row=data.iloc[4]
     data.set_index("datetime",drop=True,inplace=True)
     data=[row.symbol,position,rev.datetime.date(),rev.datetime.time(),curr.datetime.date(),curr.datetime.time(),entry,price,net,(net/entry)*100]
@@ -203,9 +203,10 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
     trades['Net']=trades['Net(After Commissions)']
     trades['Net Points Captured']=trades['Net(After Commissions)']
     trades['Net Points Captured(After Commissions)']=trades['Net(After Commissions)']
+    trades['Buy Only PnL(After Commissions)']=trades[trades['Signal']=='Buy'].Net.cumsum()
+    trades=trades.ffill()
     if flag==1:
-        trades['Buy Only PnL(After Commissions)']=trades[trades['Signal']=='Buy'].Net.cumsum()
-        trades=trades.ffill()
+        
         trades.set_index('datetime',inplace=True)
         placeholder1.line_chart(trades['Price'], use_container_width=True)
         placeholder2.line_chart(trades['Buy Only PnL(After Commissions)'], use_container_width=True)
@@ -213,16 +214,16 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
         df.index += 1 
         df=df.round(2).astype(object)
         placeholder4.subheader("Backtest Summary :")
-        with placeholder5.beta_container():
-            st.write("Net Buy(After Commissions) : ",df['Net Buy(After Commissions)'].iloc[0])
-            st.write("Net Sell(After Commissions) : ",df['Net Sell(After Commissions)'].iloc[0])
+        with placeholder5.beta_contaiSner():
+            st.write("Buy Only(After Commissions) : ",df['Net Buy(After Commissions)'].iloc[0])
+            st.write("Sell Only(After Commissions) : ",df['Net Sell(After Commissions)'].iloc[0])
             st.write("Number of Trades : ",df['Trades'].iloc[0])
-            st.write("Total Commissions : ",df['Total Commissions'].iloc[0])
-            st.write("Net PnL(After Commissions) : ",df['Net PnL(After Commissions)'].iloc[0])
-            st.write("Buy ROI(%) : ",df['Buy ROI(%)'].iloc[0])
-            st.write("Total Buy/Sell ROI(%) : ",df['Total Buy/Sell ROI(%)'].iloc[0])
+            st.write("Total commissions : ",df['Total Commissions'].iloc[0])
+            st.write("Total PnL(After Commissions) : ",df['Net PnL(After Commissions)'].iloc[0])
+            st.write("Buy Only ROI(%) : ",df['Buy ROI(%)'].iloc[0])
+            st.write("Total Buy & Sell ROI(%) : ",df['Total Buy/Sell ROI(%)'].iloc[0])
             st.write("Buy & Hold PnL : ",df['Buy & Hold PnL'].iloc[0])
-            st.write("Buy Hold ROI(%) : ",df['Buy Hold ROI(%)'].iloc[0])
+            st.write("Buy & Hold ROI(%) : ",df['Buy Hold ROI(%)'].iloc[0])
         #placeholder4.write(df)
         trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured(After Commissions)','Total PnL(After Commissions)','Buy Only PnL(After Commissions)','ROI(%)']]
         trades.reset_index(drop=True,inplace=True)
@@ -233,8 +234,8 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
         #placeholder6.pyplot()
         st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
     else:
-        
-        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured','ROI(%)']]
+        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured(After Commissions)','Total PnL(After Commissions)','Buy Only PnL(After Commissions)','ROI(%)']]
+        #trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured','ROI(%)']]
         df=trades
         df=df.iloc[::-1]
         df=df.reset_index(drop=True)
@@ -316,7 +317,7 @@ waitTime=30):
         placeholder2.text(lstRef)
         placeholder3.subheader("Currently Open Trade :")
         #placeholder4.write(currTrade(data),use_container_width=False)
-        df=currTrade(data)
+        df=currTrade(data,commission,mult)
         #tradeOutput=["Symbol","Signal",'Entry Date','Entry Time','Current Date','Current Time',"Entry Price",'Current Price',"Net Points Captured","ROI(%)"]
         with placeholder4.beta_container():
             st.write("Symbol : ",df['Symbol'].iloc[0])
@@ -327,9 +328,9 @@ waitTime=30):
             st.write("Last Change Time : ",df['Current Time'].iloc[0])
             st.write("Entry Price : ",df['Entry Price'].iloc[0])
             st.write("Last Price : ",df['Current Price'].iloc[0])
-            st.write("Net Points Captured : ",df['Net Points Captured'].iloc[0])
+            st.write("Net Points Captured (After Commissions): ",df['Net Points Captured'].iloc[0])
             st.write("Current ROI(%) : ",df['ROI(%)'].iloc[0])
-        backtest(data)
+        backtest(data,comm=commission,mult=mult)
         #time.sleep(waitTime)
         count+=1
 def main():
@@ -467,9 +468,9 @@ else:
     end_date = st.sidebar.date_input('End date', end_date)
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
-    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125,help="This commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
-    mult = st.sidebar.number_input('Number of Units',value=1,min_value=1,help="This is the number of contracts that you wish to buy/sell. Commisions and PnL will be multiplied accordingly.")
-    commission*=2
+commission = st.sidebar.number_input('Enter Commission per trade (% of Contract):',value=0.125,help="The value is % of contract bought.This commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
+mult = st.sidebar.number_input('Number of Units',value=1,min_value=1,help="This is the number of contracts that you wish to buy/sell. Commisions and PnL will be multiplied accordingly.")
+commission*=2
    
 start_button = st.sidebar.empty()
 stop_button = st.sidebar.empty()
