@@ -185,39 +185,51 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
     trades['Net(After Commissions)']=(trades['open']-trades['open'].shift(1))*mult
     trades.loc[trades['Signal']=='Sell','Net(After Commissions)']=-1.0*trades['Net(After Commissions)']
     trades['Net(After Commissions)']=trades['Net(After Commissions)']-(trades['open']*comm*mult/100)
-    trades['Total P/L(After Commissions)']=trades['Net(After Commissions)'].cumsum(axis=0)
+    trades['Total PnL(After Commissions)']=trades['Net(After Commissions)'].cumsum(axis=0)
     trades['Symbol']=trades['symbol']
     trades['Price']=trades['open']
     trades['ROI(%)']=(trades['Net(After Commissions)']/trades['Entry'])*100/mult
     startVal=trades['open'].iloc[0]
-    trades=trades[['Symbol','Entry Date','Entry Time','Exit Date','Exit Time','Signal','Entry','Exit','Net(After Commissions)','Total P/L(After Commissions)','Price','ROI(%)','datetime']]
-    totalNet=trades.iloc[-1]['Total P/L(After Commissions)']
+    trades=trades[['Symbol','Entry Date','Entry Time','Exit Date','Exit Time','Signal','Entry','Exit','Net(After Commissions)','Total PnL(After Commissions)','Price','ROI(%)','datetime']]
+    totalNet=trades.iloc[-1]['Total PnL(After Commissions)']
     totalComm=(comm/100)*mult*trades['Entry'].sum()
     netLong=trades.loc[trades['Signal']=='Buy','Net(After Commissions)'].sum()
     netShort=trades.loc[trades['Signal']=='Sell','Net(After Commissions)'].sum()
     trades.reset_index(inplace=True,drop=True)
     trades.dropna(inplace=True)
     rows=[netLong,netShort,len(trades.index),totalComm,totalNet,(netLong/(startVal*mult))*100,(totalNet/(startVal*mult))*100,buyHold*mult,(buyHold/startVal)*100]
-    tradeOutput=["Net Buy(After Commissions)","Net Sell(After Commissions)","Trades","Total Commissions","Net P/L(After Commissions)","Buy ROI(%)","Total Buy/Sell ROI(%)","Buy and Hold P/L","Buy Hold ROI(%)"]
+    tradeOutput=["Net Buy(After Commissions)","Net Sell(After Commissions)","Trades","Total Commissions","Net PnL(After Commissions)","Buy ROI(%)","Total Buy/Sell ROI(%)","Buy & Hold PnL","Buy Hold ROI(%)"]
     df = pd.DataFrame([rows], columns = tradeOutput)
     trades['Net']=trades['Net(After Commissions)']
     trades['Net Points Captured']=trades['Net(After Commissions)']
     trades['Net Points Captured(After Commissions)']=trades['Net(After Commissions)']
     if flag==1:
-        trades['Buy Only P/L(After Commissions)']=trades[trades['Signal']=='Buy'].Net.cumsum()
+        trades['Buy Only PnL(After Commissions)']=trades[trades['Signal']=='Buy'].Net.cumsum()
         trades=trades.ffill()
         trades.set_index('datetime',inplace=True)
         placeholder1.line_chart(trades['Price'], use_container_width=True)
-        placeholder2.line_chart(trades['Buy Only P/L(After Commissions)'], use_container_width=True)
-        placeholder3.line_chart(trades['Total P/L(After Commissions)'], use_container_width=True)
+        placeholder2.line_chart(trades['Buy Only PnL(After Commissions)'], use_container_width=True)
+        placeholder3.line_chart(trades['Total PnL(After Commissions)'], use_container_width=True)
         df.index += 1 
         df=df.round(2).astype(object)
-        placeholder4.write(df)
-        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured(After Commissions)','Total P/L(After Commissions)','Buy Only P/L(After Commissions)','ROI(%)']]
+        placeholder4.subheader("Backtest Summary :")
+        with placeholder5.beta_container():
+            st.write("Net Buy(After Commissions) : ",df['Net Buy(After Commissions)'].iloc[0])
+            st.write("Net Sell(After Commissions) : ",df['Net Sell(After Commissions)'].iloc[0])
+            st.write("Number of Trades : ",df['Trades'].iloc[0])
+            st.write("Total Commissions : ",df['Total Commissions'].iloc[0])
+            st.write("Net PnL(After Commissions) : ",df['Net PnL(After Commissions)'].iloc[0])
+            st.write("Buy ROI(%) : ",df['Buy ROI(%)'].iloc[0])
+            st.write("Total Buy/Sell ROI(%) : ",df['Total Buy/Sell ROI(%)'].iloc[0])
+            st.write("Buy & Hold PnL : ",df['Buy & Hold PnL'].iloc[0])
+            st.write("Buy Hold ROI(%) : ",df['Buy Hold ROI(%)'].iloc[0])
+        #placeholder4.write(df)
+        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured(After Commissions)','Total PnL(After Commissions)','Buy Only PnL(After Commissions)','ROI(%)']]
         trades.reset_index(drop=True,inplace=True)
         trades.index += 1 
         trades=trades.round(2).astype(object)
-        placeholder5.write(trades)
+        placeholder6.subheader("List of Trades :")
+        st.write(trades)
         #placeholder6.pyplot()
         st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
     else:
@@ -229,7 +241,7 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
         df.index += 1 
         df=df.round(2).astype(object)
         if df.empty==False:
-            placeholder5.markdown("List of recently Closed Trades :")
+            placeholder5.subheader("List of recently Closed Trades :")
             placeholder6.write(df.head(10),use_container_width=True)
     
     
@@ -302,8 +314,21 @@ waitTime=30):
         placeholder1.pyplot(mpf.plot(data.tail(mag),hlines=dict(hlines=[data['close'].iloc[-1]],colors=['b'],linestyle='-.'),type='candle',style='yahoo',title = chartTitle,tight_layout=True,addplot=plots,figsize=(8, 3)))
         lstRef="Last Chart Refresh - "+str(datetime.datetime.now().strftime('%H:%M:%S.%f')[:-4])
         placeholder2.text(lstRef)
-        placeholder3.markdown("Currently Open Trade :")
-        placeholder4.write(currTrade(data),use_container_width=False)
+        placeholder3.subheader("Currently Open Trade :")
+        #placeholder4.write(currTrade(data),use_container_width=False)
+        df=currTrade(data)
+        #tradeOutput=["Symbol","Signal",'Entry Date','Entry Time','Current Date','Current Time',"Entry Price",'Current Price',"Net Points Captured","ROI(%)"]
+        with placeholder4.beta_container():
+            st.write("Symbol : ",df['Symbol'].iloc[0])
+            st.write("Signal : ",df['Signal'].iloc[0])
+            st.write("Entry Date : ",df['Entry Date'].iloc[0])
+            st.write("Entry Time : ",df['Entry Time'].iloc[0])
+            st.write("Last Change Date : ",df['Current Date'].iloc[0])
+            st.write("Last Change Time : ",df['Current Time'].iloc[0])
+            st.write("Entry Price : ",df['Entry Price'].iloc[0])
+            st.write("Last Price : ",df['Current Price'].iloc[0])
+            st.write("Net Points Captured : ",df['Net Points Captured'].iloc[0])
+            st.write("Current ROI(%) : ",df['ROI(%)'].iloc[0])
         backtest(data)
         #time.sleep(waitTime)
         count+=1
@@ -442,8 +467,8 @@ else:
     end_date = st.sidebar.date_input('End date', end_date)
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
-    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125,help="This Commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
-    mult = st.sidebar.number_input('Number of Units',value=1,min_value=1,help="This is the number of contracts that you wish to buy/sell. Commisions and P/L will be multiplied accordingly.")
+    commission = st.sidebar.number_input('Enter Commission per trade (% of contract bought)',value=0.125,help="This commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
+    mult = st.sidebar.number_input('Number of Units',value=1,min_value=1,help="This is the number of contracts that you wish to buy/sell. Commisions and PnL will be multiplied accordingly.")
     commission*=2
    
 start_button = st.sidebar.empty()
