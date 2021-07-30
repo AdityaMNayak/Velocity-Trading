@@ -172,6 +172,8 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
     if trades.empty & flag==1:
         placeholder1.write("No trades executed during this time interval")
         return 0
+    trades.reset_index(inplace=True,drop=False)
+
     trades['Entry Time']=trades['datetime'].shift(1).dt.time
     trades['Exit Time']=trades['datetime'].dt.time
     trades['Entry Date']=trades['datetime'].shift(1).dt.date
