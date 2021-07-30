@@ -214,7 +214,7 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
         df.index += 1 
         df=df.round(2).astype(object)
         placeholder4.subheader("Backtest Summary :")
-        with placeholder5.beta_contaiSner():
+        with placeholder5.beta_container():
             st.write("Buy Only(After Commissions) : ",df['Net Buy(After Commissions)'].iloc[0])
             st.write("Sell Only(After Commissions) : ",df['Net Sell(After Commissions)'].iloc[0])
             st.write("Number of Trades : ",df['Trades'].iloc[0])
@@ -468,7 +468,7 @@ else:
     end_date = st.sidebar.date_input('End date', end_date)
     if start_date > end_date:
         st.sidebar.error('Error: End date must fall after start date.')
-commission = st.sidebar.number_input('Enter Commission per trade (% of Contract):',value=0.125,help="The value is % of contract bought.This commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
+commission = st.sidebar.number_input('Enter Commission per trade (% of Contract):',value=0.05,help="The value is % of contract bought.This commission is charged on each buy and sell order executed i.e a roundtrip will cost 2x this value.")
 mult = st.sidebar.number_input('Number of Units',value=1,min_value=1,help="This is the number of contracts that you wish to buy/sell. Commisions and PnL will be multiplied accordingly.")
 commission*=2
    
