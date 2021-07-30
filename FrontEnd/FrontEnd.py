@@ -234,7 +234,7 @@ def backtest(data,start=datetime.date.today()-datetime.timedelta(days=500),end=d
         #placeholder6.pyplot()
         st.markdown(get_table_download_link(trades), unsafe_allow_html=True)
     else:
-        trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured(After Commissions)','Total PnL(After Commissions)','Buy Only PnL(After Commissions)','ROI(%)']]
+        trades=trades[['Symbol','Signal','Net Points Captured(After Commissions)','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','ROI(%)']]
         #trades=trades[['Symbol','Signal','Entry Date','Entry Time','Exit Date','Exit Time','Entry','Exit','Net Points Captured','ROI(%)']]
         df=trades
         df=df.iloc[::-1]
