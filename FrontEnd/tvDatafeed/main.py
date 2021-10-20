@@ -101,7 +101,8 @@ class TvDatafeed:
 
             time.sleep(5)
             logger.debug("click sign in")
-            driver.find_element_by_class_name("tv-header__user-menu-button").click()
+            driver.find_element_by_class_name(
+                "tv-header__user-menu-button").click()
             driver.find_element_by_xpath(
                 '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[1]/div[2]/div'
             ).click()
@@ -118,7 +119,8 @@ class TvDatafeed:
             username_input.send_keys(username)
             password_input = driver.find_element_by_name("password")
             password_input.send_keys(password)
-            submit_button = driver.find_element_by_class_name("tv-button__loader")
+            submit_button = driver.find_element_by_class_name(
+                "tv-button__loader")
             submit_button.click()
             time.sleep(5)
             logger.debug("opening chart")
@@ -192,7 +194,7 @@ class TvDatafeed:
                     token = contents["token"]
                 self.chromedriver_path = contents["chromedriver_path"]
 
-            #if token is None:
+            # if token is None:
             #    if self.chromedriver_path is None or not os.path.exists(
             #        self.chromedriver_path
             #    ):
@@ -204,7 +206,8 @@ class TvDatafeed:
             #        ):
             #            self.__install_chromedriver()
 
-                token = self.__get_token(username, password, self.chromedriver_path)
+                token = self.__get_token(
+                    username, password, self.chromedriver_path)
                 if token is not None:
                     contents = dict(
                         username=username,
@@ -219,7 +222,8 @@ class TvDatafeed:
 
         if token is None:
             token = "unauthorized_user_token"
-            logger.warn("you are using nologin method, data you access may be limited")
+            logger.warn(
+                "you are using nologin method, data you access may be limited")
 
         self.token = token
         self.ws = None
@@ -248,14 +252,16 @@ class TvDatafeed:
     def __generate_session():
         stringLength = 12
         letters = string.ascii_lowercase
-        random_string = "".join(random.choice(letters) for i in range(stringLength))
+        random_string = "".join(random.choice(letters)
+                                for i in range(stringLength))
         return "qs_" + random_string
 
     @staticmethod
     def __generate_chart_session():
         stringLength = 12
         letters = string.ascii_lowercase
-        random_string = "".join(random.choice(letters) for i in range(stringLength))
+        random_string = "".join(random.choice(letters)
+                                for i in range(stringLength))
         return "cs_" + random_string
 
     @staticmethod
@@ -296,7 +302,8 @@ class TvDatafeed:
             )
 
         data = pd.DataFrame(
-            data, columns=["datetime", "open", "high", "low", "close", "volume"]
+            data, columns=["datetime", "open",
+                           "high", "low", "close", "volume"]
         ).set_index("datetime")
         data.insert(0, "symbol", value=symbol)
         return data
@@ -382,7 +389,8 @@ class TvDatafeed:
         )
 
         self.__send_message(
-            "quote_add_symbols", [self.session, symbol, {"flags": ["force_permission"]}]
+            "quote_add_symbols", [self.session, symbol,
+                                  {"flags": ["force_permission"]}]
         )
         self.__send_message("quote_fast_symbols", [self.session, symbol])
 
